@@ -7,7 +7,11 @@ export default defineConfig({
     react(),
     webExtension({
       manifest: './src/manifest.json',
-      additionalInputs: ['src/content/content.js'],
+      additionalInputs: [
+        'src/content/content.js',
+        'src/content/content.css',
+        'src/pages/ImageStitch/index.html',
+      ],
     }),
   ],
   build: {
@@ -15,10 +19,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        entryFileNames: '[name].js',
-        chunkFileNames: '[name].js',
-        assetFileNames: '[name].[ext]',
+        assetFileNames: 'assets/[name].[ext]',
       },
     },
   },
+  base: './',
 });
