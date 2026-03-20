@@ -106,7 +106,7 @@ const CanvasEditor = forwardRef<CanvasEditorRef, CanvasEditorProps>(({ images, o
       imageObjectsRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasWidth, canvasHeight, backgroundColor]); // 依赖画布参数
+  }, [canvasWidth, canvasHeight]); // 移除 backgroundColor 依赖，避免背景色变化时重新初始化画布
 
   // 在 canvas 元素上添加拖拽事件监听，防止 Fabric.js 阻止事件
   useEffect(() => {
@@ -748,15 +748,18 @@ const CanvasEditor = forwardRef<CanvasEditorRef, CanvasEditorProps>(({ images, o
               transition: 'transform 0.1s ease-out'
             }}
           >
-            {backgroundColor === 'transparent' && (
-              <div
-                className="canvas-background-pattern"
-                style={{
-                  width: canvasWidth,
-                  height: canvasHeight
-                }}
-              />
-            )}
+            <div
+              className="canvas-background-pattern"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: canvasWidth,
+                height: canvasHeight,
+                zIndex: 0,
+                display: backgroundColor === 'transparent' ? 'block' : 'none'
+              }}
+            />
             <canvas ref={canvasRef} style={{ position: 'relative', zIndex: 1 }} />
           </div>
           {isPanning && (

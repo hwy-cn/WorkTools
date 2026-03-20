@@ -1,5 +1,5 @@
 // Background Service Worker
-console.log('图片处理助手 Background Service Worker 已启动');
+console.log('WorkTools Background Service Worker 已启动');
 
 // 定义消息类型
 interface MessageRequest {
@@ -17,7 +17,7 @@ interface MessageResponse {
 
 // 插件安装或更新时触发
 chrome.runtime.onInstalled.addListener((details) => {
-  console.log('图片处理助手已安装/更新', details);
+  console.log('WorkTools已安装/更新', details);
 
   // 设置默认配置
   chrome.storage.sync.set({

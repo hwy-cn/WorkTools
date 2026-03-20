@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "图片处理助手",
+  "name": "WorkTools",
   "version": "1.0.0",
-  "description": "基于React的强大图片处理Chrome扩展插件",
+  "description": "WorkTools - 基于React的强大工作工具Chrome扩展插件",
   "permissions": [
     "activeTab",
     "storage",

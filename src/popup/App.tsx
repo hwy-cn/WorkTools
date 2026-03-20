@@ -11,7 +11,7 @@ function App() {
   return (
     <div className="container">
       <header>
-        <h1>图片处理助手</h1>
+        <h1>WorkTools</h1>
       </header>
 
       <main>

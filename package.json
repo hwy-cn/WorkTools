@@ -1,7 +1,7 @@
 {
-  "name": "image-processor-extension",
+  "name": "worktools",
   "version": "1.0.0",
-  "description": "基于React的Chrome图片处理扩展插件",
+  "description": "WorkTools - 基于React的Chrome工作工具扩展插件",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,5 +1,5 @@
 // Content Script - 在网页中运行的脚本
-console.log('图片处理助手 Content Script 已加载');
+console.log('WorkTools Content Script 已加载');
 
 // 定义图片数据接口
 interface ExtractedImageData {

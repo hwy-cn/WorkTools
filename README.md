@@ -1,4 +1,4 @@
-# 图片处理助手 Chrome 扩展
+# WorkTools Chrome 扩展
 
 一个基于 **React + Vite** 构建的现代化Chrome浏览器扩展插件，专注于图片相关的处理功能。
 
