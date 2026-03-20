@@ -1,47 +1,46 @@
 import React, { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { Canvas, FabricImage, ActiveSelection } from 'fabric';
 
-const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
+const CanvasEditor = forwardRef(({ images, onExport, onSelectImage, onUploadImages }, ref) => {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
   const imageObjectsRef = useRef(new Map()); // 存储已加载的图片对象
-  const containerRef = useRef(null);
+  const canvasContentRef = useRef(null);
+  const canvasWrapperRef = useRef(null);
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [canvasWidth, setCanvasWidth] = useState(800);
-  const [canvasHeight, setCanvasHeight] = useState(600);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [canvasWidth, setCanvasWidth] = useState(0); // 初始为0，将在useEffect中计算
+  const [canvasHeight, setCanvasHeight] = useState(0);
+  const [backgroundColor, setBackgroundColor] = useState('transparent'); // 默认透明
+  const [isSizeLocked, setIsSizeLocked] = useState(false); // 画布尺寸锁定状态，初始为解锁
+  const hasUploadedRef = useRef(false); // 记录是否已上传过图片
+  const [isDraggingOver, setIsDraggingOver] = useState(false); // 拖拽状态
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // 画布平移偏移量
+
+  // 初始化画布大小为父元素减20px
+  useEffect(() => {
+    if (canvasContentRef.current && canvasWidth === 0 && canvasHeight === 0) {
+      const contentRect = canvasContentRef.current.getBoundingClientRect();
+      const initWidth = Math.floor(Math.max(100, contentRect.width - 50));
+      const initHeight = Math.floor(Math.max(100, contentRect.height - 50));
+      setCanvasWidth(initWidth);
+      setCanvasHeight(initHeight);
+    }
+  }, [canvasWidth, canvasHeight]);
 
   // 初始化 Fabric.js 画布
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
+    if (canvasRef.current && !fabricCanvasRef.current && canvasWidth > 0 && canvasHeight > 0) {
       const canvas = new Canvas(canvasRef.current, {
         width: canvasWidth,
         height: canvasHeight,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: backgroundColor,
       });
       
       fabricCanvasRef.current = canvas;
 
-      // 启用画布缩放和平移
-      canvas.on('mouse:wheel', (opt) => {
-        const delta = opt.e.deltaY;
-        let newZoom = canvas.getZoom();
-        newZoom *= 0.999 ** delta;
-        
-        // 限制缩放范围
-        if (newZoom > 5) newZoom = 5;
-        if (newZoom < 0.1) newZoom = 0.1;
-        
-        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, newZoom);
-        setZoom(newZoom);
-        opt.e.preventDefault();
-        opt.e.stopPropagation();
-      });
-
-      // 空格键 + 鼠标拖拽平移
+      // 空格键 + 鼠标拖拽平移（使用 Fabric.js 内置功能）
       canvas.on('mouse:down', (opt) => {
         if (opt.e.spaceBar || opt.e.button === 1) { // 空格键或鼠标中键
           setIsPanning(true);
@@ -97,7 +96,78 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
       imageObjectsRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 只在组件挂载时初始化一次
+  }, [canvasWidth, canvasHeight, backgroundColor]); // 依赖画布参数
+
+  // 在 canvas 元素上添加拖拽事件监听，防止 Fabric.js 阻止事件
+  useEffect(() => {
+    const canvasElement = canvasRef.current;
+    if (!canvasElement) return;
+
+    const handleCanvasDragOver = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleCanvasDrop = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    canvasElement.addEventListener('dragover', handleCanvasDragOver);
+    canvasElement.addEventListener('drop', handleCanvasDrop);
+
+    return () => {
+      canvasElement.removeEventListener('dragover', handleCanvasDragOver);
+      canvasElement.removeEventListener('drop', handleCanvasDrop);
+    };
+  }, []);
+
+  // 容器级别的滚轮缩放和平移（使用 CSS transform）
+  useEffect(() => {
+    const contentElement = canvasContentRef.current;
+    if (!contentElement) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const delta = e.deltaY;
+      
+      // Ctrl/Cmd + 滚轮：上下移动画布
+      if (e.ctrlKey || e.metaKey) {
+        setPanOffset(prev => ({
+          x: prev.x,
+          y: prev.y - delta
+        }));
+        return;
+      }
+      
+      // Alt/Option + 滚轮：左右移动画布
+      if (e.altKey) {
+        setPanOffset(prev => ({
+          x: prev.x - delta,
+          y: prev.y
+        }));
+        return;
+      }
+      
+      // 默认：缩放
+      let newZoom = zoom;
+      newZoom *= 0.999 ** delta;
+
+      // 限制缩放范围
+      if (newZoom > 5) newZoom = 5;
+      if (newZoom < 0.1) newZoom = 0.1;
+
+      setZoom(newZoom);
+    };
+
+    contentElement.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      contentElement.removeEventListener('wheel', handleWheel);
+    };
+  }, [zoom]);
 
   // 更新画布 - 只更新布局，不重新加载图片
   const updateCanvas = useCallback(async () => {
@@ -120,7 +190,7 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
 
     // 清空画布
     canvas.clear();
-    canvas.backgroundColor = '#f5f5f5';
+    canvas.backgroundColor = backgroundColor;
 
     // 反向遍历：列表第一个最后添加，图层最高
     for (let i = images.length - 1; i >= 0; i--) {
@@ -188,68 +258,144 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
       height: canvasHeight,
     });
     canvas.renderAll();
-  }, [images, canvasWidth, canvasHeight]);
+  }, [images, canvasWidth, canvasHeight, backgroundColor]);
 
   // 监听图片变化，更新画布
   useEffect(() => {
     if (!fabricCanvasRef.current) return;
 
     if (images.length > 0) {
-      updateCanvas();
+      // 如果是第一次上传图片，根据图片大小初始化画布
+      if (!hasUploadedRef.current) {
+        // 计算所有新上传图片的最大尺寸
+        const loadImageSizes = async () => {
+          let maxWidth = 0;
+          let maxHeight = 0;
+          
+          for (const image of images) {
+            try {
+              const img = new Image();
+              await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = image.src;
+              });
+              
+              if (img.width * img.height > maxWidth * maxHeight) {
+                maxWidth = img.width;
+                maxHeight = img.height;
+              }
+            } catch (error) {
+              console.error('加载图片尺寸失败:', image.name, error);
+            }
+          }
+          
+          // 如果找到了有效的图片尺寸，使用它初始化画布
+          if (maxWidth > 0 && maxHeight > 0) {
+            setCanvasWidth(maxWidth);
+            setCanvasHeight(maxHeight);
+            
+            // 计算合适的缩放比例，使画布完全显示在视口内
+            if (canvasContentRef.current) {
+              const contentRect = canvasContentRef.current.getBoundingClientRect();
+              const viewportWidth = contentRect.width - 100; // 留出边距
+              const viewportHeight = contentRect.height - 100;
+              
+              // 计算宽度和高度的缩放比例
+              const scaleX = viewportWidth / maxWidth;
+              const scaleY = viewportHeight / maxHeight;
+              
+              // 取较小的缩放比例，确保画布完全显示
+              const autoZoom = Math.min(scaleX, scaleY, 1); // 不超过100%
+              
+              // 如果画布大于视口，自动调整缩放
+              if (autoZoom < 1) {
+                setZoom(autoZoom);
+              }
+            }
+          }
+          
+          // 标记已上传并锁定
+          hasUploadedRef.current = true;
+          setIsSizeLocked(true);
+        };
+        
+        loadImageSizes();
+      } else {
+        updateCanvas();
+      }
     } else {
       // 清空画布和缓存
       fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#f5f5f5';
+      fabricCanvasRef.current.backgroundColor = backgroundColor;
       fabricCanvasRef.current.renderAll();
       imageObjectsRef.current.clear();
+      
+      // 重置上传标记
+      hasUploadedRef.current = false;
     }
-  }, [images, updateCanvas]);
+  }, [images, updateCanvas, backgroundColor]);
 
-  // 缩放控制
+  // 缩放控制（使用 CSS transform）
   const handleZoomIn = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    
-    let newZoom = canvas.getZoom() * 1.1;
+    let newZoom = Math.round((zoom + 0.01) * 100) / 100; // 增加1%
     if (newZoom > 5) newZoom = 5;
-    
-    canvas.setZoom(newZoom);
     setZoom(newZoom);
-    canvas.renderAll();
-  }, []);
+  }, [zoom]);
 
   const handleZoomOut = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    
-    let newZoom = canvas.getZoom() / 1.1;
+    let newZoom = Math.round((zoom - 0.01) * 100) / 100; // 减少1%
     if (newZoom < 0.1) newZoom = 0.1;
-    
-    canvas.setZoom(newZoom);
     setZoom(newZoom);
-    canvas.renderAll();
-  }, []);
+  }, [zoom]);
 
   const handleZoomReset = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
-    
-    canvas.setZoom(1);
-    canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
     setZoom(1);
-    canvas.renderAll();
   }, []);
 
   // 画布尺寸控制
   const handleCanvasSizeChange = useCallback((dimension, value) => {
-    const numValue = parseInt(value) || 0;
-    if (numValue < 100) return; // 最小尺寸限制
+    // 如果锁定，提示用户
+    if (isSizeLocked) {
+      alert('画布尺寸已锁定，请先点击解锁按钮');
+      return;
+    }
+    
+    // 允许空值，用于删除操作
+    if (value === '') {
+      if (dimension === 'width') {
+        setCanvasWidth('');
+      } else {
+        setCanvasHeight('');
+      }
+      return;
+    }
+    
+    const numValue = parseInt(value);
+    if (isNaN(numValue)) return;
+    
+    // 最小尺寸限制改为1
+    if (numValue < 1) return;
     
     if (dimension === 'width') {
       setCanvasWidth(numValue);
     } else {
       setCanvasHeight(numValue);
     }
+  }, [isSizeLocked]);
+
+  // 处理画布尺寸输入框失焦
+  const handleCanvasSizeBlur = useCallback((dimension) => {
+    if (dimension === 'width' && (canvasWidth === '' || canvasWidth < 1)) {
+      setCanvasWidth(1);
+    } else if (dimension === 'height' && (canvasHeight === '' || canvasHeight < 1)) {
+      setCanvasHeight(1);
+    }
+  }, [canvasWidth, canvasHeight]);
+
+  // 切换锁定状态
+  const toggleSizeLock = useCallback(() => {
+    setIsSizeLocked(prev => !prev);
   }, []);
 
   // 更新画布尺寸
@@ -264,44 +410,19 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
     }
   }, [canvasWidth, canvasHeight]);
 
-  // 拖动调整画布大小
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    setResizeStart({
-      x: e.clientX,
-      y: e.clientY,
-      width: canvasWidth,
-      height: canvasHeight,
-    });
-  }, [canvasWidth, canvasHeight]);
-
+  // 更新画布背景色
   useEffect(() => {
-    if (!isResizing) return;
+    const canvas = fabricCanvasRef.current;
+    if (canvas) {
+      canvas.backgroundColor = backgroundColor;
+      canvas.renderAll();
+    }
+  }, [backgroundColor]);
 
-    const handleMouseMove = (e) => {
-      const deltaX = e.clientX - resizeStart.x;
-      const deltaY = e.clientY - resizeStart.y;
-      
-      const newWidth = Math.max(100, resizeStart.width + deltaX);
-      const newHeight = Math.max(100, resizeStart.height + deltaY);
-      
-      setCanvasWidth(newWidth);
-      setCanvasHeight(newHeight);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, resizeStart]);
+  // 背景色变化处理
+  const handleBackgroundColorChange = useCallback((color) => {
+    setBackgroundColor(color);
+  }, []);
 
   // 导出图片
   const handleExport = useCallback(() => {
@@ -322,6 +443,43 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
 
     onExport?.();
   }, [images.length, onExport]);
+
+  // 拖拽上传处理
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 检查是否真的离开了容器（而不是进入子元素）
+    const rect = canvasContentRef.current?.getBoundingClientRect();
+    if (rect) {
+      const x = e.clientX;
+      const y = e.clientY;
+      // 如果鼠标位置在容器外，才设置为 false
+      if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+        setIsDraggingOver(false);
+      }
+    }
+  }, []);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(file =>
+      file.type.startsWith('image/')
+    );
+
+    if (files.length > 0 && onUploadImages) {
+      onUploadImages(files);
+    }
+  }, [onUploadImages]);
 
   // 根据图片ID数组选择画布中的对象
   const selectImagesByIds = useCallback((imageIds) => {
@@ -372,8 +530,11 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
                 type="number"
                 value={canvasWidth}
                 onChange={(e) => handleCanvasSizeChange('width', e.target.value)}
-                min="100"
-                step="10"
+                onBlur={() => handleCanvasSizeBlur('width')}
+                min="1"
+                step="1"
+                disabled={isSizeLocked}
+                style={{ opacity: isSizeLocked ? 0.6 : 1, cursor: isSizeLocked ? 'not-allowed' : 'text' }}
               />
               px
             </label>
@@ -383,32 +544,90 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
                 type="number"
                 value={canvasHeight}
                 onChange={(e) => handleCanvasSizeChange('height', e.target.value)}
-                min="100"
-                step="10"
+                onBlur={() => handleCanvasSizeBlur('height')}
+                min="1"
+                step="1"
+                disabled={isSizeLocked}
+                style={{ opacity: isSizeLocked ? 0.6 : 1, cursor: isSizeLocked ? 'not-allowed' : 'text' }}
               />
               px
+            </label>
+            <div
+              className="btn-size-lock"
+              onClick={toggleSizeLock}
+              title={isSizeLocked ? '点击解锁画布尺寸' : '点击锁定画布尺寸'}
+            >
+              {isSizeLocked ? '🔒' : '🔓'}
+            </div>
+          </div>
+          <div className="background-color-controls">
+            <label>
+              背景:
+              <div className="color-picker-wrapper">
+                <button
+                  className="color-preset"
+                  style={{ background: 'transparent' }}
+                  onClick={() => handleBackgroundColorChange('transparent')}
+                  title="透明"
+                >
+                  {backgroundColor === 'transparent' && '✓'}
+                </button>
+                <button
+                  className="color-preset"
+                  style={{ background: '#ffffff' }}
+                  onClick={() => handleBackgroundColorChange('#ffffff')}
+                  title="白色"
+                >
+                  {backgroundColor === '#ffffff' && '✓'}
+                </button>
+                <button
+                  className="color-preset"
+                  style={{ background: '#000000' }}
+                  onClick={() => handleBackgroundColorChange('#000000')}
+                  title="黑色"
+                >
+                  {backgroundColor === '#000000' && '✓'}
+                </button>
+                <button
+                  className="color-preset"
+                  style={{ background: '#f5f5f5' }}
+                  onClick={() => handleBackgroundColorChange('#f5f5f5')}
+                  title="浅灰"
+                >
+                  {backgroundColor === '#f5f5f5' && '✓'}
+                </button>
+                <input
+                  type="color"
+                  value={backgroundColor === 'transparent' ? '#ffffff' : backgroundColor}
+                  onChange={(e) => handleBackgroundColorChange(e.target.value)}
+                  title="自定义颜色"
+                  className="color-input"
+                />
+              </div>
             </label>
           </div>
           <div className="zoom-controls">
             <button
               className="btn btn-zoom"
               onClick={handleZoomOut}
-              title="缩小"
+              title="缩小 (1%)"
             >
               🔍-
             </button>
-            <span className="zoom-level">{Math.round(zoom * 100)}%</span>
+            <span className="zoom-display">
+              {Math.round(zoom * 100)}%
+            </span>
             <button
               className="btn btn-zoom"
               onClick={handleZoomIn}
-              title="放大"
+              title="放大 (1%)"
             >
               🔍+
             </button>
             <button
               className="btn btn-zoom"
               onClick={handleZoomReset}
-              title="重置"
+              title="重置为100%"
             >
               ↺
             </button>
@@ -423,25 +642,59 @@ const CanvasEditor = forwardRef(({ images, onExport, onSelectImage }, ref) => {
           </button>
         </div>
       </div>
-      <div className="canvas-container" ref={containerRef}>
-        <div className="canvas-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
-          <canvas ref={canvasRef} />
+      <div className="canvas-container">
+        <div
+          className={`canvas-content ${isDraggingOver ? 'dragging-over' : ''}`}
+          ref={canvasContentRef}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <div
-            className="canvas-resize-handle"
-            onMouseDown={handleResizeStart}
-            title="拖动调整画布大小"
-          />
+            className="canvas-wrapper"
+            ref={canvasWrapperRef}
+            style={{
+              position: 'relative',
+              display: 'inline-block',
+              transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.1s ease-out'
+            }}
+          >
+            {backgroundColor === 'transparent' && (
+              <div
+                className="canvas-background-pattern"
+                style={{
+                  width: canvasWidth,
+                  height: canvasHeight
+                }}
+              />
+            )}
+            <canvas ref={canvasRef} style={{ position: 'relative', zIndex: 1 }} />
+          </div>
+          {isPanning && (
+            <div className="panning-hint">按住空格键或鼠标中键拖动画布</div>
+          )}
+          {isDraggingOver && (
+            <div className="drag-overlay">
+              <div className="drag-hint">
+                <span className="drag-icon">📁</span>
+                <p>释放以上传图片</p>
+              </div>
+            </div>
+          )}
+          {/* {images.length === 0 && !isDraggingOver && (
+            <div className="canvas-empty">
+              <p>上传图片后将在此处显示</p>
+              <p className="hint">💡 提示：拖拽图片到此处上传</p>
+              <p className="hint">使用鼠标滚轮缩放，空格键+拖拽平移</p>
+            </div>
+          )} */}
         </div>
-        {isPanning && (
-          <div className="panning-hint">按住空格键或鼠标中键拖动画布</div>
-        )}
+        <div className="tools-panel">
+          <h4>道具</h4>
+        </div>
       </div>
-      {images.length === 0 && (
-        <div className="canvas-empty">
-          <p>上传图片后将在此处显示</p>
-          <p className="hint">💡 提示：使用鼠标滚轮缩放，空格键+拖拽平移</p>
-        </div>
-      )}
     </main>
   );
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import CanvasEditor from "./components/CanvasEditor";
 import ImageList from "./components/ImageList";
 import DeleteConfirmModal from "./components/DeleteConfirmModal";
@@ -8,10 +8,36 @@ function ImageStitch() {
   const [images, setImages] = useState([]);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [selectedImageIds, setSelectedImageIds] = useState([]);
+  const [isDarkTheme, setIsDarkTheme] = useState(true); // 默认使用暗色主题
   const canvasEditorRef = useRef(null);
+
+  // 应用主题到 body
+  useEffect(() => {
+    if (isDarkTheme) {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+  }, [isDarkTheme]);
+
+  // 切换主题
+  const toggleTheme = () => {
+    setIsDarkTheme(prev => !prev);
+  };
 
   // 处理上传的图片
   const handleUpload = (newImages) => {
+    setImages((prev) => [...prev, ...newImages]);
+  };
+
+  // 处理拖拽上传的文件
+  const handleUploadFiles = (files) => {
+    const newImages = files.map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      name: file.name,
+      src: URL.createObjectURL(file),
+      file: file,
+    }));
     setImages((prev) => [...prev, ...newImages]);
   };
 
@@ -82,8 +108,19 @@ function ImageStitch() {
   return (
     <div className="image-stitch-container">
       <header className="header">
-        <h1>🖼️ 图片处理工具</h1>
-        <p>上传图片，拖动调整顺序</p>
+        <div className="header-content">
+          <div>
+            <h1>🖼️ 图片处理工具</h1>
+            <p>上传图片，拖动调整顺序</p>
+          </div>
+          <button
+            className="theme-toggle-btn"
+            onClick={toggleTheme}
+            title={isDarkTheme ? "切换到亮色主题" : "切换到暗色主题"}
+          >
+            {isDarkTheme ? "☀️" : "🌙"}
+          </button>
+        </div>
       </header>
 
       <div className="main-content">
@@ -109,6 +146,7 @@ function ImageStitch() {
           ref={canvasEditorRef}
           images={images}
           onSelectImage={handleCanvasSelect}
+          onUploadImages={handleUploadFiles}
         />
       </div>
 
