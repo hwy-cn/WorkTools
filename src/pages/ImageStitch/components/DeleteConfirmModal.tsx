@@ -1,6 +1,7 @@
 import React from 'react';
+import { DeleteConfirmModalProps } from '../types';
 
-function DeleteConfirmModal({ deleteIndex, onConfirm, onCancel }) {
+function DeleteConfirmModal({ deleteIndex, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const isOpen = deleteIndex !== null;
 
   if (!isOpen) return null;

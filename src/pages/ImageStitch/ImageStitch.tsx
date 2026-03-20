@@ -3,13 +3,14 @@ import CanvasEditor from "./components/CanvasEditor";
 import ImageList from "./components/ImageList";
 import DeleteConfirmModal from "./components/DeleteConfirmModal";
 import UploadSection from "./components/UploadSection";
+import { ImageData, CanvasEditorRef } from "./types";
 
 function ImageStitch() {
-  const [images, setImages] = useState([]);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [selectedImageIds, setSelectedImageIds] = useState([]);
+  const [images, setImages] = useState<ImageData[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [selectedImageIds, setSelectedImageIds] = useState<(string | number)[]>([]);
   const [isDarkTheme, setIsDarkTheme] = useState(true); // 默认使用暗色主题
-  const canvasEditorRef = useRef(null);
+  const canvasEditorRef = useRef<CanvasEditorRef>(null);
 
   // 应用主题到 body
   useEffect(() => {

@@ -16,13 +16,13 @@
     "default_popup": "src/popup/index.html"
   },
   "background": {
-    "service_worker": "src/background/background.js",
+    "service_worker": "src/background/background.ts",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["src/content/content.js"],
+      "js": ["src/content/content.ts"],
       "css": ["src/content/content.css"]
     }
   ],

@@ -8,7 +8,7 @@ export default defineConfig({
     webExtension({
       manifest: './src/manifest.json',
       additionalInputs: [
-        'src/content/content.js',
+        'src/content/content.ts',
         'src/content/content.css',
         'src/pages/ImageStitch/index.html',
       ],

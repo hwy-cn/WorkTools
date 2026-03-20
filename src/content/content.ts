@@ -1,8 +1,34 @@
 // Content Script - 在网页中运行的脚本
 console.log('图片处理助手 Content Script 已加载');
 
+// 定义图片数据接口
+interface ExtractedImageData {
+  index?: number;
+  src: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+  displayWidth?: number;
+  displayHeight?: number;
+  type?: string;
+}
+
+// 定义消息请求接口
+interface ContentMessageRequest {
+  action: 'extractImages' | 'highlightImages' | 'removeHighlight' | 'downloadImage';
+  url?: string;
+}
+
+// 定义消息响应接口
+interface ContentMessageResponse {
+  success: boolean;
+  count?: number;
+  images?: ExtractedImageData[];
+  error?: string;
+}
+
 // 监听来自popup和background的消息
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request: ContentMessageRequest, sender, sendResponse: (response: ContentMessageResponse) => void) => {
   console.log('Content Script 收到消息:', request);
 
   switch (request.action) {
@@ -26,11 +52,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 // 提取页面中的所有图片
-function extractImagesFromPage(sendResponse) {
+function extractImagesFromPage(sendResponse: (response: ContentMessageResponse) => void): void {
   try {
     // 获取所有img标签
     const images = document.querySelectorAll('img');
-    const imageData = [];
+    const imageData: ExtractedImageData[] = [];
 
     images.forEach((img, index) => {
       // 过滤掉太小的图片（可能是图标或装饰性图片）
@@ -74,13 +100,13 @@ function extractImagesFromPage(sendResponse) {
     console.error('提取图片失败:', error);
     sendResponse({
       success: false,
-      error: error.message,
+      error: (error as Error).message,
     });
   }
 }
 
 // 高亮显示所有图片
-function highlightAllImages() {
+function highlightAllImages(): void {
   const images = document.querySelectorAll('img');
 
   images.forEach((img) => {
@@ -100,31 +126,32 @@ function highlightAllImages() {
 }
 
 // 移除图片高亮
-function removeImageHighlight() {
+function removeImageHighlight(): void {
   const images = document.querySelectorAll('img.image-processor-highlight');
 
   images.forEach((img) => {
-    img.style.outline = '';
-    img.style.outlineOffset = '';
-    img.style.cursor = '';
-    img.classList.remove('image-processor-highlight');
-    img.removeEventListener('click', handleImageClick);
+    const htmlImg = img as HTMLImageElement;
+    htmlImg.style.outline = '';
+    htmlImg.style.outlineOffset = '';
+    htmlImg.style.cursor = '';
+    htmlImg.classList.remove('image-processor-highlight');
+    htmlImg.removeEventListener('click', handleImageClick);
   });
 }
 
 // 处理图片点击
-function handleImageClick(event) {
+function handleImageClick(event: Event): void {
   event.preventDefault();
   event.stopPropagation();
 
-  const img = event.target;
+  const img = event.target as HTMLImageElement;
 
   // 创建浮层显示图片信息
   showImageInfo(img);
 }
 
 // 显示图片信息浮层
-function showImageInfo(img) {
+function showImageInfo(img: HTMLImageElement): void {
   // 移除已存在的浮层
   const existingPanel = document.getElementById('image-processor-panel');
   if (existingPanel) {
@@ -169,12 +196,12 @@ function showImageInfo(img) {
   document.body.appendChild(panel);
 
   // 关闭按钮
-  document.getElementById('close-panel').addEventListener('click', () => {
+  document.getElementById('close-panel')?.addEventListener('click', () => {
     panel.remove();
   });
 
   // 下载按钮
-  document.getElementById('download-img').addEventListener('click', () => {
+  document.getElementById('download-img')?.addEventListener('click', () => {
     chrome.runtime.sendMessage({
       action: 'downloadImage',
       url: img.src,
@@ -182,7 +209,7 @@ function showImageInfo(img) {
   });
 
   // 复制链接按钮
-  document.getElementById('copy-url').addEventListener('click', () => {
+  document.getElementById('copy-url')?.addEventListener('click', () => {
     navigator.clipboard.writeText(img.src).then(() => {
       alert('链接已复制到剪贴板');
     });
@@ -190,17 +217,18 @@ function showImageInfo(img) {
 
   // 点击外部关闭
   setTimeout(() => {
-    document.addEventListener('click', function closePanel(e) {
-      if (!panel.contains(e.target)) {
+    const closePanel = (e: MouseEvent): void => {
+      if (!panel.contains(e.target as Node)) {
         panel.remove();
         document.removeEventListener('click', closePanel);
       }
-    });
+    };
+    document.addEventListener('click', closePanel);
   }, 100);
 }
 
 // 添加键盘快捷键支持
-document.addEventListener('keydown', (event) => {
+document.addEventListener('keydown', (event: KeyboardEvent) => {
   // Ctrl/Cmd + Shift + I: 高亮所有图片
   if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'I') {
     event.preventDefault();

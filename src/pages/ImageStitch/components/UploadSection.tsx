@@ -1,13 +1,14 @@
 import React, { useRef } from 'react';
+import { UploadSectionProps, ImageData } from '../types';
 
-function UploadSection({ onUpload, onClearAll, hasImages }) {
-  const fileInputRef = useRef(null);
+function UploadSection({ onUpload, onClearAll, hasImages }: UploadSectionProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 上传图片
-  const handleUpload = (e) => {
-    const files = Array.from(e.target.files);
-    
-    const newImages = [];
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+
+    const newImages: ImageData[] = [];
     let loadedCount = 0;
 
     files.forEach((file) => {
@@ -17,18 +18,18 @@ function UploadSection({ onUpload, onClearAll, hasImages }) {
         img.onload = () => {
           newImages.push({
             id: Date.now() + Math.random(),
-            src: event.target.result,
+            src: event.target?.result as string,
             name: file.name,
             width: img.width,
             height: img.height,
           });
-          
+
           loadedCount++;
           if (loadedCount === files.length) {
             onUpload(newImages);
           }
         };
-        img.src = event.target.result;
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     });

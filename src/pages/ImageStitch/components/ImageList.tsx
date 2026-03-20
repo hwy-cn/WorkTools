@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
+import { ImageListProps } from '../types';
 
-function ImageList({ images, onReorder, onDelete, selectedImageIds, onSelectImage }) {
-  const [draggedIndex, setDraggedIndex] = useState(null);
+function ImageList({ images, onReorder, onDelete, selectedImageIds, onSelectImage }: ImageListProps) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // 拖拽开始
-  const handleDragStart = (e, index) => {
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     setDraggedIndex(index);
     setIsDragging(true);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   // 拖拽经过
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   // 放置
-  const handleDrop = (e, dropIndex) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
     e.preventDefault();
     
     if (draggedIndex === null || draggedIndex === dropIndex) {
@@ -43,13 +44,13 @@ function ImageList({ images, onReorder, onDelete, selectedImageIds, onSelectImag
   };
 
   // 处理图片点击选择（支持多选）
-  const handleItemClick = (e, imageId) => {
+  const handleItemClick = (e: React.MouseEvent<HTMLDivElement>, imageId: string | number) => {
     // 如果正在拖拽，不触发选择
     if (isDragging) {
       return;
     }
     // 如果点击的是删除按钮或拖拽手柄，不触发选择
-    if (e.target.closest('.item-delete') || e.target.closest('.item-drag-handle')) {
+    if ((e.target as HTMLElement).closest('.item-delete') || (e.target as HTMLElement).closest('.item-drag-handle')) {
       return;
     }
     
